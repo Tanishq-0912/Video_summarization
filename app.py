@@ -4,13 +4,28 @@ import os
 import tempfile
 import whisper
 import warnings
+from urllib.parse import urlparse, parse_qs
 
 # Suppress FP16 warning
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # Normalize YouTube URL
 def normalize_url(url):
-    return url.replace("m.youtube.com", "www.youtube.com")
+    parsed = urlparse(url)
+
+    # Handle youtu.be short links
+    if "youtu.be" in parsed.netloc:
+        video_id = parsed.path.lstrip("/")
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    # Handle youtube.com links and remove extra parameters
+    if "youtube.com" in parsed.netloc:
+        qs = parse_qs(parsed.query)
+        vid = qs.get("v", [None])[0]
+        if vid:
+            return f"https://www.youtube.com/watch?v={vid}"
+
+    return url
 
 # Download audio using yt-dlp
 def download_audio(youtube_url):
@@ -77,4 +92,4 @@ if st.button("Transcribe"):
                     st.success("Transcription complete.")
                     st.text_area("Transcript", transcript, height=400)
             except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+                st.error(f"❌ Error: {str(e)}")
