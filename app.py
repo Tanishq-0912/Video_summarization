@@ -1,98 +1,65 @@
-import streamlit as st
-import subprocess
 import os
-import tempfile
+import yt_dlp
 import whisper
-import warnings
-from urllib.parse import urlparse, parse_qs
+import gradio as gr
 
-# Suppress FP16 warning
-warnings.filterwarnings("ignore", category=UserWarning)
+# Path to your ffmpeg/bin folder
+FFMPEG_BIN_PATH = r"C:\Users\Admin\Downloads\ffmpeg-6.1.1-full_build\bin"
 
-# Normalize YouTube URL
-def normalize_url(url):
-    parsed = urlparse(url)
+def download_audio(url):
+    """Download YouTube video audio as MP3"""
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": "audio.%(ext)s",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192"
+            }
+        ],
+        "ffmpeg_location": FFMPEG_BIN_PATH
+    }
 
-    # Handle youtu.be short links
-    if "youtu.be" in parsed.netloc:
-        video_id = parsed.path.lstrip("/")
-        return f"https://www.youtube.com/watch?v={video_id}"
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
 
-    # Handle youtube.com links and remove extra parameters
-    if "youtube.com" in parsed.netloc:
-        qs = parse_qs(parsed.query)
-        vid = qs.get("v", [None])[0]
-        if vid:
-            return f"https://www.youtube.com/watch?v={vid}"
+    return "audio.mp3"
 
-    return url
 
-# Download audio using yt-dlp
-def download_audio(youtube_url):
+def transcribe_and_summarize(url):
     try:
-        clean_url = normalize_url(youtube_url)
-        temp_dir = tempfile.mkdtemp()
-        output_path = os.path.join(temp_dir, "audio.mp3")
+        # Step 1: Download audio
+        audio_path = download_audio(url)
 
-        command = [
-            "yt-dlp",
-            "--cookies", "cookies.txt",  # <-- added here
-            "-f", "bestaudio",
-            "--extract-audio",
-            "--audio-format", "mp3",
-            "-o", output_path,
-            clean_url
-        ]
+        # Step 2: Load Whisper model
+        model = whisper.load_model("base")
+        result = model.transcribe(audio_path)
 
-        result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise Exception(f"yt-dlp error: {result.stderr}")
+        transcript = result["text"]
 
-        return output_path
+        # Step 3: Very simple summarization (first 500 chars)
+        summary = transcript[:500] + "..." if len(transcript) > 500 else transcript
+
+        return transcript, summary
     except Exception as e:
-        raise Exception(f"Download failed: {str(e)}")
+        return f"Error: {str(e)}", ""
 
 
-# Transcribe audio using Whisper (tiny model, limited duration)
-def transcribe_audio(audio_path):
-    try:
-        # Trim first 30 seconds using ffmpeg
-        trimmed_path = audio_path.replace(".mp3", "_trimmed.mp3")
-        trim_command = [
-            "ffmpeg", "-y", "-i", audio_path,
-            "-t", "30",  # duration in seconds
-            "-acodec", "copy", trimmed_path
-        ]
-        subprocess.run(trim_command, capture_output=True)
+# Gradio Web Interface
+with gr.Blocks() as demo:
+    gr.Markdown("## 🎥 YouTube Video Transcriber & Summarizer")
+    url_input = gr.Textbox(label="YouTube URL")
+    transcript_output = gr.Textbox(label="Transcript", lines=10)
+    summary_output = gr.Textbox(label="Summary", lines=5)
+    run_button = gr.Button("Transcribe & Summarize")
 
-        # Load Whisper model
-        model = whisper.load_model("tiny")
-        result = model.transcribe(trimmed_path)
+    run_button.click(
+        fn=transcribe_and_summarize,
+        inputs=url_input,
+        outputs=[transcript_output, summary_output]
+    )
 
-        # Clean up trimmed file
-        os.remove(trimmed_path)
-
-        return result["text"]
-    except Exception as e:
-        raise Exception(f"Transcription failed: {str(e)}")
-
-# Streamlit UI
-st.title("🎧 YouTube Video Transcriber")
-youtube_url = st.text_input("Enter YouTube video URL")
-
-if st.button("Transcribe"):
-    if not youtube_url:
-        st.error("Please enter a YouTube URL.")
-    else:
-        with st.spinner("Downloading audio..."):
-            try:
-                audio_path = download_audio(youtube_url)
-                st.success("Audio downloaded successfully.")
-
-                with st.spinner("Transcribing first 30 seconds..."):
-                    transcript = transcribe_audio(audio_path)
-                    st.success("Transcription complete.")
-                    st.text_area("Transcript", transcript, height=400)
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-
+if __name__ == "__main__":
+    os.environ["PATH"] += os.pathsep + FFMPEG_BIN_PATH
+    demo.launch()
