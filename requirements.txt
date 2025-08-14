@@ -1,0 +1,8 @@
+streamlit
+gradio
+transformers
+youtube-transcript-api
+torch
+yt-dlp
+openai-whisper
+ffmpeg-python
