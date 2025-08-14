@@ -36,6 +36,7 @@ def download_audio(youtube_url):
 
         command = [
             "yt-dlp",
+            "--cookies", "cookies.txt",  # <-- added here
             "-f", "bestaudio",
             "--extract-audio",
             "--audio-format", "mp3",
@@ -50,6 +51,7 @@ def download_audio(youtube_url):
         return output_path
     except Exception as e:
         raise Exception(f"Download failed: {str(e)}")
+
 
 # Transcribe audio using Whisper (tiny model, limited duration)
 def transcribe_audio(audio_path):
@@ -93,3 +95,4 @@ if st.button("Transcribe"):
                     st.text_area("Transcript", transcript, height=400)
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
+
