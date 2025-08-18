@@ -3,3 +3,5 @@ yt-dlp
 openai-whisper
 torch
 ffmpeg-python
+pytube
+
