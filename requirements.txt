@@ -1,7 +1,7 @@
 streamlit
-yt-dlp
-openai-whisper
-torch
-ffmpeg-python
 pytube
+git+https://github.com/openai/whisper.git
+ffmpeg-python
+
+
 
