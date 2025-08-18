@@ -1,28 +1,43 @@
+# app.py
 import re
 import streamlit as st
 from diag_transcript import fetch_transcript_from_youtube
 
 st.set_page_config(page_title="YouTube Transcript Fetcher", page_icon="🎬", layout="centered")
-
 st.title("🎬 YouTube Transcript Fetcher")
 
-# Input box for YouTube URL
-url = st.text_input("Enter YouTube URL:")
+st.markdown("Paste a YouTube URL or a raw 11-char video ID. "
+            "This app first tries the official API, then a resilient fallback scraper.")
 
-if url:
-    # Extract video ID (works for youtube.com and youtu.be)
-    match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", url)
-    if match:
-        video_id = match.group(1)
-        st.write(f"✅ Video ID: **{video_id}**")
+def extract_video_id(u: str) -> str | None:
+    if not u:
+        return None
+    u = u.strip()
+    # Accept raw 11-char ID
+    if re.fullmatch(r"[0-9A-Za-z_-]{11}", u):
+        return u
+    # Extract from common URL forms
+    m = re.search(r"(?:v=|/shorts/|youtu\.be/)([0-9A-Za-z_-]{11})", u)
+    return m.group(1) if m else None
 
-        # Fetch transcript from diag_transcript.py
-        transcript_text = fetch_transcript_from_youtube(video_id)
+url = st.text_input("Enter YouTube URL or ID:")
 
-        if transcript_text:
-            st.success("Transcript fetched successfully! 🎉")
-            st.text_area("Transcript:", transcript_text, height=400)
+if st.button("Fetch transcript"):
+    vid = extract_video_id(url)
+    if not vid:
+        st.error("Could not extract a valid 11-character video ID. Check the URL.")
+    else:
+        st.info(f"Video ID detected: **{vid}**")
+        with st.spinner("Retrieving transcript…"):
+            text, notes = fetch_transcript_from_youtube(vid, return_notes=True)
+
+        if text:
+            st.success("Transcript fetched ✅")
+            st.text_area("Transcript (first 4000 chars):", text[:4000], height=300)
         else:
             st.error("❌ Transcript not available for this video.")
-    else:
-        st.error("⚠️ Could not extract a valid video ID from the URL. Please check the link.")
+            with st.expander("Show diagnostic details"):
+                if notes:
+                    st.code("\n".join(f"- {n}" for n in notes))
+                else:
+                    st.write("No diagnostic notes available.")
