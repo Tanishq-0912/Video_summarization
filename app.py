@@ -3,16 +3,9 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, No
 from diag_transcript import fetch_transcript_from_youtube
 
 def fetch_transcript(video_id):
-    try:
-        transcript = fetch_transcript_from_youtube(video_id)
-        text = " ".join([entry["text"] for entry in transcript])
-        return text
-    except TranscriptsDisabled:
-        return "❌ Transcript not available (disabled by uploader)."
-    except NoTranscriptFound:
-        return "❌ No transcript found for this video."
-    except Exception as e:
-        return f"❌ Error fetching transcript: {e}"
+    transcript_text = fetch_transcript_from_youtube(video_id)
+    if transcript_text:
+        return transcript_text
 
 st.title("🎬 YouTube Transcript Fetcher")
 
@@ -27,4 +20,5 @@ if url:
 
     transcript_text = fetch_transcript(video_id)
     st.text_area("Transcript:", transcript_text, height=300)
+
 
