@@ -1,8 +1,6 @@
 # app.py — Streamlit app (cloud-friendly, no heavy deps)
 import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
-transcript = YouTubeTranscriptApi.get_transcript("6ahxPTLZxU8")
-
 from pytube import YouTube
 import tempfile, os, shutil, re
 import nltk
@@ -137,4 +135,5 @@ if run_btn:
 # small footer
 st.markdown("---")
 st.caption("This lightweight app summarizes videos that already have captions. For videos without captions, run local transcription (Whisper) on your machine.")
+
 
