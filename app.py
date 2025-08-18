@@ -1,9 +1,10 @@
 import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
+from diag_transcript import fetch_transcript_from_youtube
 
 def fetch_transcript(video_id):
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = fetch_transcript_from_youtube(video_id)
         text = " ".join([entry["text"] for entry in transcript])
         return text
     except TranscriptsDisabled:
@@ -26,3 +27,4 @@ if url:
 
     transcript_text = fetch_transcript(video_id)
     st.text_area("Transcript:", transcript_text, height=300)
+
