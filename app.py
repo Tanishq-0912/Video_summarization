@@ -31,8 +31,8 @@ def extract_video_id(url: str) -> str:
 def fetch_transcript_from_youtube(video_id: str):
     """Try to obtain a transcript using youtube_transcript_api."""
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        text = " ".join([seg["text"] for seg in transcript_list if seg.get("text")])
+        transcript_list, _ = YouTubeTranscriptApi.get_transcripts([video_id])
+        text = " ".join([seg["text"] for seg in transcript_list[video_id] if seg.get("text")])
         return text
     except TranscriptsDisabled:
         raise Exception("Transcripts are disabled for this video.")
@@ -40,6 +40,7 @@ def fetch_transcript_from_youtube(video_id: str):
         raise Exception("No transcript found for this video.")
     except Exception as e:
         raise Exception(f"Transcript fetch error: {e}")
+
 
 def download_audio_with_pytube(url: str):
     """Download audio with pytube (will only be used for local testing — Cloud transcription is not included)."""
@@ -135,5 +136,6 @@ if run_btn:
 # small footer
 st.markdown("---")
 st.caption("This lightweight app summarizes videos that already have captions. For videos without captions, run local transcription (Whisper) on your machine.")
+
 
 
