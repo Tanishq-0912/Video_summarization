@@ -2,6 +2,10 @@
 import re
 import streamlit as st
 from diag_transcript import fetch_transcript_from_youtube
+import youtube_transcript_api
+
+st.write("✅ youtube-transcript-api version:", youtube_transcript_api.__version__)
+
 
 st.set_page_config(page_title="YouTube Transcript Fetcher", page_icon="🎬", layout="centered")
 st.title("🎬 YouTube Transcript Fetcher")
@@ -41,3 +45,4 @@ if st.button("Fetch transcript"):
                     st.code("\n".join(f"- {n}" for n in notes))
                 else:
                     st.write("No diagnostic notes available.")
+
