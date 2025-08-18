@@ -1,4 +1,5 @@
 streamlit
-pytube
-youtube-transcript-api
-nltk
+yt-dlp
+openai-whisper
+transformers
+torch
