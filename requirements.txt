@@ -1,9 +1,2 @@
 streamlit
-openai-whisper
-transformers
-torch
-pytube
-youtube-transcript-api>=0.6.2
-nltk
-
-
+youtube-transcript-api==0.6.2
