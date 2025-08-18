@@ -1,65 +1,88 @@
+import streamlit as st
+import subprocess
 import os
-import yt_dlp
+import tempfile
 import whisper
-import gradio as gr
+import warnings
+import shutil
 
-# Path to your ffmpeg/bin folder
-FFMPEG_BIN_PATH = r"C:\Users\Admin\Downloads\ffmpeg-6.1.1-full_build\bin"
+# Suppress FP16 warning
+warnings.filterwarnings("ignore", category=UserWarning)
 
-def download_audio(url):
-    """Download YouTube video audio as MP3"""
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": "audio.%(ext)s",
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192"
-            }
-        ],
-        "ffmpeg_location": FFMPEG_BIN_PATH
-    }
+# Cache Whisper model to avoid reloading every button click
+@st.cache_resource
+def load_whisper_model():
+    return whisper.load_model("tiny")  # can change to "base" if you want better quality
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+# Normalize YouTube URL
+def normalize_url(url: str) -> str:
+    return url.replace("m.youtube.com", "www.youtube.com")
 
-    return "audio.mp3"
+# Download audio using yt-dlp
+def download_audio(youtube_url: str) -> str:
+    clean_url = normalize_url(youtube_url)
+    temp_dir = tempfile.mkdtemp()
+    output_path = os.path.join(temp_dir, "audio.mp3")
 
+    command = [
+        "yt-dlp",
+        "-f", "bestaudio",
+        "--extract-audio",
+        "--audio-format", "mp3",
+        "-o", output_path,
+        clean_url
+    ]
 
-def transcribe_and_summarize(url):
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Exception(f"yt-dlp error: {result.stderr}")
+
+    return output_path
+
+# Transcribe audio using Whisper (first 30s only)
+def transcribe_audio(audio_path: str, model):
+    trimmed_path = audio_path.replace(".mp3", "_trimmed.mp3")
+    trim_command = [
+        "ffmpeg", "-y", "-i", audio_path,
+        "-t", "30",  # only first 30 seconds
+        "-acodec", "copy", trimmed_path
+    ]
+    subprocess.run(trim_command, capture_output=True)
+
+    result = model.transcribe(trimmed_path)
+
+    # Clean up temporary files
     try:
-        # Step 1: Download audio
-        audio_path = download_audio(url)
+        os.remove(trimmed_path)
+        os.remove(audio_path)
+        shutil.rmtree(os.path.dirname(audio_path), ignore_errors=True)
+    except:
+        pass
 
-        # Step 2: Load Whisper model
-        model = whisper.load_model("base")
-        result = model.transcribe(audio_path)
+    return result["text"]
 
-        transcript = result["text"]
+# ---------------- STREAMLIT UI ---------------- #
+st.set_page_config(page_title="🎧 YouTube Transcriber", layout="wide")
+st.title("🎧 YouTube Video Transcriber")
 
-        # Step 3: Very simple summarization (first 500 chars)
-        summary = transcript[:500] + "..." if len(transcript) > 500 else transcript
+youtube_url = st.text_input("Enter YouTube video URL")
 
-        return transcript, summary
-    except Exception as e:
-        return f"Error: {str(e)}", ""
+if st.button("Transcribe"):
+    if not youtube_url:
+        st.error("Please enter a YouTube URL.")
+    else:
+        with st.spinner("Loading Whisper model..."):
+            model = load_whisper_model()
 
+        with st.spinner("Downloading audio..."):
+            try:
+                audio_path = download_audio(youtube_url)
+                st.success("✅ Audio downloaded.")
 
-# Gradio Web Interface
-with gr.Blocks() as demo:
-    gr.Markdown("## 🎥 YouTube Video Transcriber & Summarizer")
-    url_input = gr.Textbox(label="YouTube URL")
-    transcript_output = gr.Textbox(label="Transcript", lines=10)
-    summary_output = gr.Textbox(label="Summary", lines=5)
-    run_button = gr.Button("Transcribe & Summarize")
+                with st.spinner("Transcribing first 30 seconds..."):
+                    transcript = transcribe_audio(audio_path, model)
+                    st.success("✅ Transcription complete.")
+                    st.text_area("Transcript", transcript, height=300)
 
-    run_button.click(
-        fn=transcribe_and_summarize,
-        inputs=url_input,
-        outputs=[transcript_output, summary_output]
-    )
-
-if __name__ == "__main__":
-    os.environ["PATH"] += os.pathsep + FFMPEG_BIN_PATH
-    demo.launch()
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
