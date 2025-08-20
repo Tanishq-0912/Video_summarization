@@ -1,5 +1,8 @@
 streamlit
-youtube-transcript-api>=0.6.2
-requests
-nltk
-
+gradio
+transformers
+youtube-transcript-api
+torch
+yt-dlp
+openai-whisper
+ffmpeg-python
